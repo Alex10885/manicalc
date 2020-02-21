@@ -24,10 +24,23 @@ const startButton = document.querySelector('.start-button'),
     totalPriceSum = document.querySelector('.total_price__sum'),
     adapt = document.getElementById('adapt'),
     mobileTemplates = document.getElementById('mobileTemplates'),
+    desktopTemplates = document.getElementById('desktopTemplates'),
+    editable = document.getElementById('editable'),
+    adaptValue = document.querySelector('.adapt_value'),
+    mobileTemplatesValue = document.querySelector('.mobileTemplates_value'),
+    desktopTemplateValue = document.querySelector('.desktopTemplates_value'),
+    editableValue = document.querySelector('.editable_value'),
     typeSite = document.querySelector('.type-site'),
     maxDeadline = document.querySelector('.max-deadline'),
     rangeDeadline = document.querySelector('.range-deadline'),
-    deadlineValue = document.querySelector('.deadline-value');
+    deadlineValue = document.querySelector('.deadline-value'),
+    calDescription = document.querySelector('.calc-description'),
+    metrikaYandex = document.getElementById('metrikaYandex'),
+    analyticsGoogle = document.getElementById('analyticsGoogle'),
+    sendOrder = document.getElementById('sendOrder')
+    cardHead = document.querySelector('.card-head'),
+    totalPrice = document.querySelector('.total_price'),
+    firstFieldset = document.querySelector('.first-fieldset');
 
 
 function declOfNum(n, titles) {
@@ -43,6 +56,42 @@ function hideElem(elem) {
     elem.style.display = 'none';
 }
 
+function dopOptionsString() {
+    //Подключим Яндекс Метрику, Гугл Аналитику и отправку заявок на почту.
+    let str = '';
+
+    if(metrikaYandex.checked || analyticsGoogle.checked ||sendOrder.checked){
+        str+= 'Подключим';
+
+        if(metrikaYandex.checked){
+            str+= ' Яндекс Метрику';
+
+            if(analyticsGoogle.checked && sendOrder.checked){
+                str+= ', Гугл Аналитику и отправку заявок на почту.';
+                return;
+            }
+            if(analyticsGoogle.checked || sendOrder.checked){
+                str+= ' и';
+            }
+        }
+
+        if(analyticsGoogle.checked){
+            str += ' Гугл Аналитику';
+
+            if(sendOrder.checked){
+                str+= ' и';
+            }
+        }
+
+        if(sendOrder.checked){
+            str+= ' отправку заявок на почту';
+        }
+        str+= '.';
+    }
+
+    return str;
+}
+
 function renderTextContent(total, site, maxDay, minDay){
 
     totalPriceSum.textContent = total;
@@ -51,16 +100,32 @@ function renderTextContent(total, site, maxDay, minDay){
     rangeDeadline.min = minDay;
     rangeDeadline.max = maxDay;
     deadlineValue.textContent = declOfNum(rangeDeadline.value, DAY_STRING);
-}
 
-function priceCalculation(elem){
+    adaptValue.textContent = adapt.checked ? 'Да' : 'Нет';
+    mobileTemplatesValue.textContent = mobileTemplates.checked ? 'Да' : 'Нет';
+    desktopTemplateValue.textContent = desktopTemplates.checked ? 'Да' : 'Нет';
+    editableValue.textContent = editable.checked ? 'Да' : 'Нет';
+
+    calDescription.textContent =  `
+    
+    Сделаем ${site}${adapt.checked ? 
+    ', адаптированный под мобильные устройства и планшеты' : ''}.
+    ${editable.checked ? `Установим панель админстратора, 
+    чтобы вы могли самостоятельно менять содержание на сайте без разработчика.` : ''}
+    ${dopOptionsString()}
+    
+    `;
+    
+}
+function priceCalculation(elem = {}){
 
     let result = 0,
         index  = 0,
         options = [],
         site = '',
         maxDedlineDay = DATA.dedlineDay[index][1],
-        minDedlineDay = DATA.dedlineDay[index][0];
+        minDedlineDay = DATA.dedlineDay[index][0], 
+        overPersent = 0;
 
     if(elem.name === 'whichSite'){
         for (const item of formCalculate.elements) {
@@ -77,10 +142,15 @@ function priceCalculation(elem){
             site = item.dataset.site;
             maxDedlineDay = DATA.dedlineDay[index][1];
             minDedlineDay = DATA.dedlineDay[index][0];
-        } else if(item.classList.contains('calc-handler') && item.checked)
+        } else if(item.classList.contains('calc-handler') && item.checked){
             options.push(elem.value);
-        
+        } else if (item.classList.contains('want-faster')&& item.checked){
+            const overDay = maxDedlineDay - rangeDeadline.value;
+            overPersent = overDay * (DATA.dedlinePercent[index]/100);
+        } 
     }
+
+    result += DATA.price[index];
 
     options.forEach(function(key){
         if(typeof(DATA[key]) === 'number'){
@@ -99,7 +169,13 @@ function priceCalculation(elem){
     });
     
    
-    result += DATA.price[index];
+    
+
+     
+    
+    //console.log(result + result * overPersent);
+
+    result += result * overPersent;
 
     renderTextContent(result, site, maxDedlineDay, minDedlineDay);
 
@@ -122,6 +198,8 @@ function handlerCallBackForm(event) {
         } else {
             hideElem(fastRange);
         }
+
+        priceCalculation(target);
     }
 
     if(target.classList.contains('calc-handler')){
@@ -130,9 +208,29 @@ function handlerCallBackForm(event) {
 
 }
 
+function moveBackTotal(){
+    if(document.documentElement.getBoundingClientRect().bottom > document.documentElement.clientHeight + 200){
+        totalPrice.classList.remove('totalPriceBottom');
+        firstFieldset.after(totalPrice);
+        window.removeEventListener('scroll', moveBackTotal);
+        window.addEventListener('scroll', moveTotal);
+        
+    }
+}
+
+function moveTotal(){
+    if(document.documentElement.getBoundingClientRect().bottom < document.documentElement.clientHeight + 200){
+        totalPrice.classList.add('totalPriceBottom');
+        endButton.before(totalPrice);
+        window.removeEventListener('scroll', moveTotal);
+        window.addEventListener('scroll', moveBackTotal);
+    }
+}
+
 startButton.addEventListener('click', function () {
     showElem(mainForm);
     hideElem(firstScreen);
+    window.addEventListener('scroll', moveTotal);
 });
 
 endButton.addEventListener('click', function () {
@@ -142,7 +240,12 @@ endButton.addEventListener('click', function () {
         }
     }
 
+    cardHead.textContent = 'Заявка на разработку сайта';
+    hideElem(totalPrice);
     showElem(total);
+
 });
 
 formCalculate.addEventListener('change', handlerCallBackForm);
+
+priceCalculation();
